@@ -79,7 +79,7 @@ flowchart TD
         end
         subgraph S[SBERT + FAISS (optional)]
             S1[Encode with paraphrase-multilingual-mpnet-base-v2]
-            S2[FAISS search (K)] 
+            S2[FAISS search (K)]
             S3[Blend score = α·FAISS + (1-α)·p_fastText]
         end
         Rpick{Best over candidates?}
@@ -117,7 +117,6 @@ flowchart TD
     F1 --> C2
     C1 --> C3
     C2 --> C3
-
 -----
 ## İçindekiler
 
