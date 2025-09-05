@@ -19,104 +19,104 @@ Bu repoda, yarışma sürecinde denenen tüm yöntemler özetlenmiştir: fastTex
 
 -----
 flowchart TD
-    %% =============== INPUT ===============
-    A[[Raw Address Texts\n(data/train.csv, data/test.csv)]]
+    %% =============== INPUT ===============
+    A[[Raw Address Texts\n(data/train.csv, data/test.csv)]]
 
-    %% =============== NORMALIZATION ===============
-    subgraph N[Normalization & Keys (src/normalize.py)]
-        N1[Expand Abbrev:\nmah/mh→mahalle,\ncad/cd→cadde, sk→sokak, blv→bulvar...]
-        N2[Number Std:\nno:12→no 12, kat5→kat 5, d12→d 12]
-        N3[Split Alnum:\na12→a 12, 12a→12 a]
-        N4[ASCII View (unidecode)]
-        N5[Fingerprint:\nunique sorted tokens]
-    end
+    %% =============== NORMALIZATION ===============
+    subgraph N[Normalization & Keys (src/normalize.py)]
+        N1[Expand Abbrev:\nmah/mh→mahalle,\ncad/cd→cadde, sk→sokak, blv→bulvar...]
+        N2[Number Std:\nno:12→no 12, kat5→kat 5, d12→d 12]
+        N3[Split Alnum:\na12→a 12, 12a→12 a]
+        N4[ASCII View (unidecode)]
+        N5[Fingerprint:\nunique sorted tokens]
+    end
 
-    A --> N1 --> N2 --> N3 --> N4 --> N5
+    A --> N1 --> N2 --> N3 --> N4 --> N5
 
-    K1[[norm]]
-    K2[[norm_ascii]]
-    K3[[fp]]
-    N1 -->|build| K1
-    N4 -->|build| K2
-    N5 -->|build| K3
+    K1[[norm]]
+    K2[[norm_ascii]]
+    K3[[fp]]
+    N1 -->|build| K1
+    N4 -->|build| K2
+    N5 -->|build| K3
 
-    %% =============== RULE LAYER ===============
-    subgraph R[Rule Layer (src/rules.py)]
-        R1[Majority-Map by Key\n(norm / norm_ascii / fp)]
-        R2{Key Hit?}
-    end
+    %% =============== RULE LAYER ===============
+    subgraph R[Rule Layer (src/rules.py)]
+        R1[Majority-Map by Key\n(norm / norm_ascii / fp)]
+        R2{Key Hit?}
+    end
 
-    K1 --> R1
-    K2 --> R1
-    K3 --> R1
-    R1 --> R2
+    K1 --> R1
+    K2 --> R1
+    K3 --> R1
+    R1 --> R2
 
-    R2 -->|Yes| L_rule[[Label (Rule)]]
-    R2 -->|No| MLPATH[Go to ML]
+    R2 -->|Yes| L_rule[[Label (Rule)]]
+    R2 -->|No| MLPATH[Go to ML]
 
-    %% =============== ML: FASTTEXT ===============
-    subgraph F[ML Path — fastText]
-        F0[[ft_train.txt]]
-        F1[Train fastText\nlr=0.7, epoch=23,\nwordNgrams=4, dim=300]
-        F2[Predict k=5\n(top-k labels & probs)]
-        F3{Gating\np@1 < P1_THR OR\n(p1-p2) < M_THR?}
-    end
+    %% =============== ML: FASTTEXT ===============
+    subgraph F[ML Path — fastText]
+        F0[[ft_train.txt]]
+        F1[Train fastText\nlr=0.7, epoch=23,\nwordNgrams=4, dim=300]
+        F2[Predict k=5\n(top-k labels & probs)]
+        F3{Gating\np@1 < P1_THR OR\n(p1-p2) < M_THR?}
+    end
 
-    A --> F0
-    F0 --> F1
-    F1 --> F2
-    MLPATH --> F2
-    F2 --> F3
+    A --> F0
+    F0 --> F1
+    F1 --> F2
+    MLPATH --> F2
+    F2 --> F3
 
-    F3 -->|No (Strong)| L_ft[[Label = Top-1 (fastText)]]
+    F3 -->|No (Strong)| L_ft[[Label = Top-1 (fastText)]]
 
-    %% =============== RERANKERS ===============
-    subgraph RR[Rerankers (Weak Only)]
-        direction LR
-        subgraph T[TF-IDF Centroid]
-            T1[char(3–5) TF-IDF\ntrain → per-label centroids]
-            T2[cosine(X_weak, C_label)\nselect best in ft top-k]
-        end
-        subgraph S[SBERT + FAISS (optional)]
-            S1[Encode with paraphrase-multilingual-mpnet-base-v2]
-            S2[FAISS search (K)] 
-            S3[Blend score = α·FAISS + (1-α)·p_fastText]
-        end
-        Rpick{Best over candidates?}
-    end
+    %% =============== RERANKERS ===============
+    subgraph RR[Rerankers (Weak Only)]
+        direction LR
+        subgraph T[TF-IDF Centroid]
+            T1[char(3–5) TF-IDF\ntrain → per-label centroids]
+            T2[cosine(X_weak, C_label)\nselect best in ft top-k]
+        end
+        subgraph S[SBERT + FAISS (optional)]
+            S1[Encode with paraphrase-multilingual-mpnet-base-v2]
+            S2[FAISS search (K)] 
+            S3[Blend score = α·FAISS + (1-α)·p_fastText]
+        end
+        Rpick{Best over candidates?}
+    end
 
-    F3 -->|Yes (Weak)| T1 --> T2 --> Rpick
-    F3 -->|Yes (Weak)| S1 --> S2 --> S3 --> Rpick
-    Rpick --> L_rerank[[Label = Reranked]]
+    F3 -->|Yes (Weak)| T1 --> T2 --> Rpick
+    F3 -->|Yes (Weak)| S1 --> S2 --> S3 --> Rpick
+    Rpick --> L_rerank[[Label = Reranked]]
 
-    %% =============== MERGE & OUTPUT ===============
-    subgraph MRG[Merge & Submission]
-        M1{Has Rule Label?}
-        M2[Final Label = Rule else ML/Rerank]
-        M3[(Distribution Checks:\nlabel freq, uniques)]
-        M4[[submission.csv]]
-    end
+    %% =============== MERGE & OUTPUT ===============
+    subgraph MRG[Merge & Submission]
+        M1{Has Rule Label?}
+        M2[Final Label = Rule else ML/Rerank]
+        M3[(Distribution Checks:\nlabel freq, uniques)]
+        M4[[submission.csv]]
+    end
 
-    L_rule --> M1
-    L_ft --> M1
-    L_rerank --> M1
-    M1 -->|Yes (Rule)| M2
-    M1 -->|No (Use ML)| M2
-    M2 --> M3 --> M4
+    L_rule --> M1
+    L_ft --> M1
+    L_rerank --> M1
+    M1 -->|Yes (Rule)| M2
+    M1 -->|No (Use ML)| M2
+    M2 --> M3 --> M4
 
-    %% =============== CACHE & MODELS ===============
-    subgraph C[Artifacts & Caching]
-        C1[(runs/: ft_probs.npy,\nft_labels.npy,\npred_ml_top1.csv)]
-        C2[(models/: fastText .bin/.ftz)]
-        C3[(Drive save/load\noptional)]
-    end
+    %% =============== CACHE & MODELS ===============
+    subgraph C[Artifacts & Caching]
+        C1[(runs/: ft_probs.npy,\nft_labels.npy,\npred_ml_top1.csv)]
+        C2[(models/: fastText .bin/.ftz)]
+        C3[(Drive save/load\noptional)]
+    end
 
-    F2 --> C1
-    L_ft --> C1
-    L_rerank --> C1
-    F1 --> C2
-    C1 --> C3
-    C2 --> C3
+    F2 --> C1
+    L_ft --> C1
+    L_rerank --> C1
+    F1 --> C2
+    C1 --> C3
+    C2 --> C3
 
 -----
 ## İçindekiler
