@@ -17,6 +17,9 @@ Türkçe adres metninden **10.000'den fazla sınıflı etiket tahmini** yapmakt�
 
 Bu repoda, yarışma sürecinde denenen tüm yöntemler özetlenmiştir: fastText, kural katmanı, TF-IDF / SBERT rerank, BERTurk proto-centroid ve fine-tune (LLRD/EMA), kalibrasyon ve dağılım kontrolleri.
 
+## Pipeline Akışı
+
+![Pipeline Flow](./t3aisema.png)
 
 -----
 ## İçindekiler
